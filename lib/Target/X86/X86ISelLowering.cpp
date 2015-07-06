@@ -15853,16 +15853,30 @@ SDValue X86TargetLowering::LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
 
 // FIXME? Maybe this could be a TableGen attribute on some registers and
 // this table could be generated automatically from RegInfo.
-unsigned X86TargetLowering::getRegisterByName(const char* RegName,
-                                              EVT VT) const {
+unsigned X86TargetLowering::getRegisterByName(const char* RegName, EVT VT,
+                                              SelectionDAG &DAG) const {
+  const TargetFrameLowering &TFI = *Subtarget->getFrameLowering();
+  const MachineFunction &MF = DAG.getMachineFunction();
+
+  bool hasFP = TFI.hasFP(MF);
+  if (hasFP) {
+    const X86RegisterInfo *RegInfo = Subtarget->getRegisterInfo();
+    unsigned FrameReg =
+        RegInfo->getPtrSizedFrameRegister(DAG.getMachineFunction());
+    assert((FrameReg == X86::EBP || FrameReg == X86::RBP) &&
+           "Invalid Frame Register!");
+  }
+
   unsigned Reg = StringSwitch<unsigned>(RegName)
                        .Case("esp", X86::ESP)
                        .Case("rsp", X86::RSP)
-                       .Case("ebp", X86::EBP)
-                       .Case("rbp", X86::RBP)
+                       .Case("ebp", hasFP ? X86::EBP : 0)
+                       .Case("rbp", hasFP ? X86::RBP : 0)
                        .Default(0);
-  if (Reg)
+
+  if (Reg) 
     return Reg;
+
   report_fatal_error("Invalid register name global variable");
 }
 
